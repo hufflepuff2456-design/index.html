@@ -27,10 +27,9 @@
       display: grid; place-items: center; gap: 14px;
     }
 
-    
     h1{
       margin: 0 0 6px 0;
-      font-family: "Great Vibes", 
+      font-family: "Great Vibes", cursive;
       font-weight: 400;
       font-size: clamp(40px, 10vw, 84px);
       line-height: 1;
@@ -40,7 +39,6 @@
       text-shadow: 0 2px 20px rgba(0,0,0,.25);
     }
 
-    /* The line you asked to show under the title */
     .subtitle{
       margin: 0 0 18px 0;
       text-align: center;
@@ -48,10 +46,9 @@
       font-size: clamp(14px, 2.6vw, 18px);
     }
 
-    /* Card that hosts the embedded board */
     .frame{
-      width: min(92vmin, 820px);       /* responsive max width */
-      aspect-ratio: 4 / 3;             /* Fritz default ~4:3 board area */
+      width: min(92vmin, 820px);
+      aspect-ratio: 4 / 3;
       border-radius: 14px;
       border: 1px solid var(--line);
       overflow: hidden;
@@ -65,7 +62,6 @@
       display: block;
     }
 
-   
     .hint{
       color: var(--muted);
       font-size: 12px;
@@ -77,9 +73,8 @@
 <body>
 
   <h1>défaite d'amour</h1>
-  <p class="subtitle">pièce après pièce </p>
+  <p class="subtitle">pièce après pièce</p>
 
-  <!-- Interactive engine-powered board (Fritz by ChessBase) -->
   <div class="frame">
     <iframe
       src="https://fritz.chessbase.com"
@@ -89,7 +84,8 @@
     </iframe>
   </div>
 
-  <p class="hint">Tip: try not to lose </p>
+  <!-- UPDATED LINE -->
+  <p class="hint">tip: try to not lose – zai</p>
 
 </body>
 </html>
