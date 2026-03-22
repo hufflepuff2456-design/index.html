@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>endless circle</title>
+
+  <style>
+    :root{
+      --fg:#111; --muted:#666; --line:#e6e6e6;
+      --accent:#1e88e5; --center:#e53935; --bg:#ffffff;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+
+    body{
+      margin:0; padding:16px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color:var(--fg); background:var(--bg);
+      display:grid; grid-template-rows:auto auto 1fr; gap:12px; justify-items:center;
+    }
+
+    h1{
+      margin:0; font-weight:700; letter-spacing:.3px; text-transform: lowercase;
+      font-size: clamp(28px, 6vw, 48px);
+    }
+    p.tip{ margin:0; color:var(--muted); font-size:12px; text-align:center; }
+
+    /* Stage with two canvases (background + drawing) */
+    .stage{
+      width:min(92vmin, 760px);
+      aspect-ratio: 1 / 1;
+      border:1px solid var(--line);
+      border-radius:14px;
+      position:relative; overflow:hidden; background:#fff;
+      touch-action:none;
+    }
+    canvas{ width:100%; height:100%; display:block; }
+    #bg{ position:absolute; inset:0; z-index:0; }
+    #draw{ position:absolute; inset:0; z-index:1; }
+
+    /* SCORE: transparent overlay with only the number */
+    .score{
+      position:absolute; inset:0; z-index:3;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none;            /* don’t block drawing */
+      opacity:0; visibility:hidden;   /* hidden until finished */
+      transition: opacity .2s ease;
+    }
+    .score.show{ opacity:1; visibility:visible; }
+    #scoreNumber{
+      color:#fff;                      /* white only */
+      font-weight:900;
+      line-height:1;
+      font-size: clamp(64px, 18vmin, 220px);
+      text-shadow:
+        0 2px 8px rgba(0,0,0,.45),
+        0 0 1px rgba(0,0,0,.25);
+    }
+
+    @media (prefers-color-scheme: dark){
+      :root{ --fg:#eee; --muted:#aaa; --line:#2b2b2b; --bg:#0d0d0d; }
+    }
+  </style>
+</head>
+<body>
+  <h1>endless circle</h1>
+  <p class="tip">Draw a freehand circle. Release to see your score.</p>
+
+  <div class="stage" id="stage" aria-label="Draw area">
+    <canvas id="bg" aria-hidden="true"></canvas>   <!-- grid + axes + spirograph -->
+    <canvas id="draw"></canvas>                    <!-- stroke + fitted circle -->
+
+    <!-- Only the score number (transparent background) -->
+    <div id="scoreWrap" class="score">
+      <div id="scoreNumber">–</div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // Canvases
+    const bg = document.getElementById('bg');
+    const fg = document.getElementById('draw');
+    const stage = document.getElementById('stage');
+    const bctx = bg.getContext('2d');
+    const fctx = fg.getContext('2d');
+
+    // Score overlay
+    const scoreWrap   = document.getElementById('scoreWrap');
+    const scoreNumber = document.getElementById('scoreNumber');
+
+    // State
+    let drawing = false;
+    let path = [];              // [{x,y}]
+    let result = null;          // {cx,cy,r,rmse,score}
+    let DPR = 1, W = 0, H = 0;
+
+    // Sizing
+    function fit(){
+      DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const bb = stage.getBoundingClientRect();
+      W = Math.floor(bb.width * DPR);
+      H = Math.floor(bb.height * DPR);
+
+      [bg, fg].forEach(cv=>{
+        cv.width = W; cv.height = H;
+        const c = cv.getContext('2d');
+        c.setTransform(1,0,0,1,0,0);
+        c.scale(DPR, DPR);
+      });
+
+      drawBackground();
+      drawForeground();
+    }
+    new ResizeObserver(fit).observe(stage);
+    window.addEventListener('resize', fit, {passive:true});
+
+    // Helpers
+    function cssColor(varName, fallback){
+      const v = getComputedStyle(document.body).getPropertyValue(varName).trim();
+      return v || fallback;
+    }
+    function toLocal(evt, cv){
+      const r = cv.getBoundingClientRect();
+      return { x:(evt.clientX - r.left), y:(evt.clientY - r.top) };
+    }
+
+    // Background: grid + axes + subtle spirograph
+    function drawBackground(){
+      const w = bg.clientWidth, h = bg.clientHeight;
+      bctx.clearRect(0,0,w,h);
+
+      const gridCol = cssColor('--line', '#e6e6e6');
+      const axisCol = '#b9b9b9';
+
+      // grid
+      bctx.save();
+      bctx.strokeStyle = gridCol; bctx.lineWidth = 1; bctx.globalAlpha = .75;
+      const step = 32;
+      bctx.beginPath();
+      for(let x=0;x<=w;x+=step){ bctx.moveTo(x,0); bctx.lineTo(x,h); }
+      for(let y=0;y<=h;y+=step){ bctx.moveTo(0,y); bctx.lineTo(w,y); }
+      bctx.stroke(); bctx.restore();
+
+      // axes
+      bctx.save();
+      bctx.strokeStyle = axisCol; bctx.lineWidth = 2; bctx.setLineDash([6,5]);
+      bctx.beginPath();
+      bctx.moveTo(w/2,6); bctx.lineTo(w/2,h-6);
+      bctx.moveTo(6,h/2); bctx.lineTo(w-6,h/2);
+      bctx.stroke(); bctx.restore();
+
+      // spirograph
+      drawSpiroLayer(w,h);
+    }
+    function drawSpiroLayer(w,h){
+      const cx=w/2, cy=h/2, base=Math.min(w,h)*0.35;
+      const sets=[
+        {R:base,    r:base*0.27, d:base*0.52, rot:0,            col:'#a6c8ff'},
+        {R:base*0.9,r:base*0.21, d:base*0.60, rot:Math.PI/7,    col:'#ffc8f2'},
+        {R:base*1.1,r:base*0.33, d:base*0.42, rot:-Math.PI/9,   col:'#c8ffd9'}
+      ];
+      bctx.save(); bctx.globalAlpha=.22; bctx.lineWidth=1.5;
+      sets.forEach(s=>{
+        bctx.strokeStyle=s.col; bctx.beginPath();
+        const steps=1500;
+        for(let i=0;i<=steps;i++){
+          const t=i/steps*Math.PI*2*8;
+          const x=(s.R-s.r)*Math.cos(t)+s.d*Math.cos(((s.R-s.r)/s.r)*t+s.rot);
+          const y=(s.R-s.r)*Math.sin(t)-s.d*Math.sin(((s.R-s.r)/s.r)*t+s.rot);
+          const X=cx+x/DPR, Y=cy+y/DPR;
+          if(i===0) bctx.moveTo(X,Y); else bctx.lineTo(X,Y);
+        }
+        bctx.stroke();
+      });
+      bctx.restore();
+    }
+
+    // Foreground drawing + best-fit
+    function drawForeground(){
+      const w = fg.clientWidth, h = fg.clientHeight;
+      fctx.clearRect(0,0,w,h);
+
+      // user stroke
+      if (path && path.length){
+        fctx.save();
+        fctx.lineCap='round'; fctx.lineJoin='round'; fctx.lineWidth=2; fctx.strokeStyle='#111';
+        const o=(fctx.lineWidth%2)?0.5:0;
+        fctx.beginPath(); fctx.moveTo(path[0].x+o, path[0].y+o);
+        for(let i=1;i<path.length;i++){ const p=path[i]; fctx.lineTo(p.x+o, p.y+o); }
+        fctx.stroke(); fctx.restore();
+      }
+
+      // best-fit circle
+      if (result){
+        const {cx,cy,r}=result;
+        fctx.save();
+        fctx.strokeStyle=cssColor('--accent','#1e88e5'); fctx.lineWidth=2; fctx.setLineDash([8,7]);
+        fctx.beginPath(); fctx.arc(cx,cy,r,0,Math.PI*2); fctx.stroke(); fctx.setLineDash([]);
+        fctx.fillStyle=cssColor('--center','#e53935'); fctx.beginPath(); fctx.arc(cx,cy,3.2,0,Math.PI*2); fctx.fill();
+        fctx.restore();
+      }
+    }
+
+    // Circle fit (Kåsa)
+    function fitCircleKasa(pts){
+      const n=pts.length; if(n<6) return null;
+      let Sx=0,Sy=0,Sxx=0,Syy=0,Sxy=0,Sz=0,Sxz=0,Syz=0;
+      for(const p of pts){ const x=p.x,y=p.y,z=x*x+y*y; Sx+=x;Sy+=y;Sxx+=x*x;Syy+=y*y;Sxy+=x*y;Sz+=z;Sxz+=x*z;Syz+=y*z; }
+      const M=[[Sxx,Sxy,Sx],[Sxy,Syy,Sy],[Sx,Sy,n]], B=[-Sxz,-Syz,-Sz];
+      const abc=solve3(M,B); if(!abc) return null;
+      const [a,b,c]=abc; const cx=-a/2, cy=-b/2; const r2=(a*a+b*b)/4 - c; if(r2<=0||!isFinite(r2)) return null;
+      return {cx,cy,r:Math.sqrt(r2)};
+    }
+    function solve3(M,B){
+      const A=[[M[0][0],M[0][1],M[0][2],B[0]],[M[1][0],M[1][1],M[1][2],B[1]],[M[2][0],M[2][1],M[2][2],B[2]]];
+      for(let col=0;col<3;col++){
+        let piv=col; for(let r=col+1;r<3;r++){ if(Math.abs(A[r][col])>Math.abs(A[piv][col])) piv=r; }
+        if(Math.abs(A[piv][col])<1e-9) return null;
+        if(piv!==col){ const t=A[piv]; A[piv]=A[col]; A[col]=t; }
+        const f=A[col][col]; for(let j=col;j<4;j++) A[col][j]/=f;
+        for(let r=0;r<3;r++){ if(r===col) continue; const g=A[r][col]; for(let j=col;j<4;j++) A[r][j]-=g*A[col][j]; }
+      }
+      return [A[0][3],A[1][3],A[2][3]];
+    }
+    function rmsError(pts,cx,cy,r){ let s=0; for(const p of pts){ const e=Math.hypot(p.x-cx,p.y-cy)-r; s+=e*e; } return Math.sqrt(s/pts.length); }
+    function scoreFromRmse(rmse,r){ if(!isFinite(r)||r<=0) return 0; const rel=rmse/r, k=5.0; return Math.round(Math.max(0,100*Math.exp(-k*rel))); }
+
+    // Drawing
+    function down(e){ e.preventDefault(); hideScore(); drawing=true; result=null; path=[]; addPoint(e); }
+    function move(e){ if(!drawing) return; addPoint(e); }
+    function up(e){ if(!drawing) return; drawing=false; finalize(); }
+
+    function addPoint(e){
+      const p=(e.touches&&e.touches[0])?e.touches[0]:e;
+      const {x,y}=toLocal(p, fg);
+      if(path.length>0){ const q=path[path.length-1]; if(Math.hypot(x-q.x,y-q.y)<1.5) return; }
+      path.push({x,y}); drawForeground();
+    }
+
+    function finalize(){
+      if(path.length<12){ showScore(null); drawForeground(); return; }
+      const fit=fitCircleKasa(path); if(!fit){ showScore(null); drawForeground(); return; }
+      const rmse=rmsError(path,fit.cx,fit.cy,fit.r); const score=scoreFromRmse(rmse,fit.r);
+      result={cx:fit.cx,cy:fit.cy,r:fit.r,rmse,score}; drawForeground(); showScore(score);
+    }
+
+    // Score overlay controls
+    function showScore(score){
+      scoreNumber.textContent = (score==null? '–' : String(score));
+      scoreWrap.classList.add('show');
+    }
+    function hideScore(){ scoreWrap.classList.remove('show'); }
+
+    // Pointer wiring
+    fg.addEventListener('pointerdown', down);
+    fg.addEventListener('pointermove', move);
+    fg.addEventListener('pointerup', up);
+    fg.addEventListener('pointercancel', up);
+    fg.addEventListener('pointerleave', up);
+    // touch
+    fg.addEventListener('touchstart', (e)=>down(e), {passive:false});
+    fg.addEventListener('touchmove',  (e)=>move(e), {passive:false});
+    fg.addEventListener('touchend',   (e)=>up(e),   {passive:false});
+
+    // Start
+    fit();
+  })();
+  </script>
+</body>
+</html>
