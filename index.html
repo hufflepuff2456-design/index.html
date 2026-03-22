@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>défaite d'amour</title>
+
+  <!-- Cursive title font -->
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* Your green theme */
+      --bg: #07130a;
+      --panel: #0e1a12;
+      --text: #eaf7ef;
+      --muted: #a7c7b1;
+      --line: #12301d;
+    }
+    * { box-sizing: border-box; }
+    body{
+      margin: 0; padding: 24px;
+      color: var(--text);
+      background: radial-gradient(1000px 600px at 30% -10%, #0c1d13, var(--bg));
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      display: grid; place-items: center; gap: 14px;
+    }
+
+    /* Title in cursive */
+    h1{
+      margin: 0 0 6px 0;
+      font-family: "Great Vibes", cursive;
+      font-weight: 400;
+      font-size: clamp(40px, 10vw, 84px);
+      line-height: 1;
+      text-align: center;
+      letter-spacing: .4px;
+      color: var(--text);
+      text-shadow: 0 2px 20px rgba(0,0,0,.25);
+    }
+
+    /* The line you asked to show under the title */
+    .subtitle{
+      margin: 0 0 18px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: clamp(14px, 2.6vw, 18px);
+    }
+
+    /* Card that hosts the embedded board */
+    .frame{
+      width: min(92vmin, 820px);       /* responsive max width */
+      aspect-ratio: 4 / 3;             /* Fritz default ~4:3 board area */
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+    }
+    .frame > iframe{
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
+
+    /* Small helper text (optional; remove if you don’t want it) */
+    .hint{
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>défaite d'amour</h1>
+  <p class="subtitle">pièce après pièce </p>
+
+  <!-- Interactive engine-powered board (Fritz by ChessBase) -->
+  <div class="frame">
+    <iframe
+      src="https://fritz.chessbase.com"
+      title="Play against the chess engine"
+      allow="fullscreen"
+      loading="lazy">
+    </iframe>
+  </div>
+
+  <p class="hint">Tip: click/tap squares to move (drag also works). You are playing against the engine.</p>
+
+</body>
+</html>
