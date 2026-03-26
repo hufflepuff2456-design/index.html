@@ -6,37 +6,49 @@
 
   <title>défaite d'amour</title>
 
-
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      /* Your green theme */
-      --bg: #07130a;
-      --panel: #0e1a12;
-      --text: #eaf7ef;
-      --muted: #a7c7b1;
-      --line: #12301d;
+      /* CHESS-GREY THEME */
+      --bg: #0f0f10;          /* deep charcoal */
+      --panel: #1a1b1d;       /* board-edge dark grey */
+      --text: #f0f0f0;        /* soft white */
+      --muted: #b5b5b5;       /* light grey */
+      --line: #2a2a2c;        /* subtle border */
+      --highlight: #424245;   /* misty mid-grey */
     }
+
     * { box-sizing: border-box; }
+
     body{
       margin: 0; padding: 24px;
       color: var(--text);
-      background: radial-gradient(1000px 600px at 30% -10%, #0c1d13, var(--bg));
+      background:
+        radial-gradient(900px 600px at 30% -10%, #1c1c1f, var(--bg)),
+        repeating-linear-gradient(
+          45deg,
+          rgba(255,255,255,0.02) 0,
+          rgba(255,255,255,0.02) 10px,
+          rgba(0,0,0,0.02) 10px,
+          rgba(0,0,0,0.02) 20px
+        ); /* subtle marble/chess texture */
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       display: grid; place-items: center; gap: 14px;
     }
 
     h1{
       margin: 0 0 6px 0;
-      font-family: "Great Vibes" 
+      font-family: "Great Vibes";
       font-weight: 400;
       font-size: clamp(40px, 10vw, 84px);
       line-height: 1;
       text-align: center;
-      letter-spacing: .4px;
       color: var(--text);
-      text-shadow: 0 2px 20px rgba(0,0,0,.25);
+      letter-spacing: .4px;
+      text-shadow: 
+        0 1px 4px rgba(0,0,0,0.6),
+        0 2px 14px rgba(255,255,255,0.05);
     }
 
     .subtitle{
@@ -44,6 +56,7 @@
       text-align: center;
       color: var(--muted);
       font-size: clamp(14px, 2.6vw, 18px);
+      letter-spacing: 1px;
     }
 
     .frame{
@@ -52,14 +65,22 @@
       border-radius: 14px;
       border: 1px solid var(--line);
       overflow: hidden;
-      background: var(--panel);
-      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+      background: linear-gradient(
+        135deg,
+        #1a1b1d,
+        #232427
+      );
+      box-shadow:
+        0 10px 30px rgba(0,0,0,.55),
+        0 0 20px rgba(80,80,80,0.15) inset;
     }
+
     .frame > iframe{
       width: 100%;
       height: 100%;
       border: 0;
       display: block;
+      background: var(--panel);
     }
 
     .hint{
@@ -67,9 +88,11 @@
       font-size: 12px;
       text-align: center;
       margin-top: 8px;
+      opacity: .8;
     }
   </style>
 </head>
+
 <body>
 
   <h1>défaite d'amour</h1>
@@ -84,7 +107,6 @@
     </iframe>
   </div>
 
-  <!-- UPDATED LINE -->
   <p class="hint">tip: try to not lose – zai</p>
 
 </body>
